@@ -1,6 +1,7 @@
 import express from "express";
 import * as fs from "fs";
 import { nanoid } from "nanoid";
+import bcrypt from "bcrypt";
 
 const PORT = 3333;
 const app = express();
@@ -69,18 +70,44 @@ app.post("/Signup", (req, res) => {
   const existingUser = users.find((user) => user.email === email);
   if (existingUser)
     return res.status(400).send({ message: "user already registered" });
+
+  bcrypt.hash(password, 10, function (err, hash) {
+    const newUser = { email, password: hash };
+    fs.writeFileSync(
+      "./users.json",
+      JSON.stringify([...users, newUser]),
+      "utf-8"
+    );
+    return res.status(200).json(newUser);
+  });
+});
+
+app.post("/login", (req, res) => {
+  const { name, email, password } = req.body;
+  const users = JSON.parse(fs.readFileSync("./users.json", "utf-8"));
+  const existingUser = users.find((user) => user.email === email);
+  if (!existingUser)
+    return res.status(400).send({ message: "Email or password not correct!" });
+  bcrypt.compare(password, existingUser.password, function (err, result) {
+    if (!result) {
+      return res
+        .status(400)
+        .send({ message: "Email or password not correct!" });
+    } else {
+      return res.status(200).send({ message: "welcome" });
+    }
+  });
   const newUsers = {
     id: nanoid(),
-    name: name,
     email: email,
     password: password,
   };
+
   fs.writeFileSync(
     "./users.json",
     JSON.stringify([...users, newUsers]),
     "utf-8"
   );
-  return res.status(200).json({ message: "New user created" });
 });
 
 app.listen(PORT, () => {
